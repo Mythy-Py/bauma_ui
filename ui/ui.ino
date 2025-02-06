@@ -2,7 +2,7 @@
 #include "Arduino_GigaDisplayTouch.h"
 #include "lvgl.h"
 #include <ui.h>
-#include "gyro.c"
+#include "gscope.h"
 
 extern BoschSensorClass imu;
 Arduino_H7_Video Display(800, 480, GigaDisplayShield);  //( 800, 480, GigaDisplayShield );
@@ -14,8 +14,6 @@ extern lv_obj_t* ui_Zstr;
 extern lv_obj_t* ui_Dot;
 
 extern float gx, gy, gz;
-extern float gyrX, gyrY, gyrZ;
-extern float accX, accY, accZ;
 extern float freq;
 extern float gyrXoffs, gyrYoffs, gyrZoffs;
 
@@ -81,13 +79,14 @@ void update_vals() {
   //Overflows
   round_vals(&x,&y,&z);
   
+  constexpr float p_val = 100/90;
   if (x == 0)
     lv_obj_set_x(ui_Dot, lv_pct(0));
   else
-    lv_obj_set_x(ui_Dot, lv_pct(round((100 / 90) * x)));
+    lv_obj_set_x(ui_Dot, lv_pct(round(p_val * x)));
 
   if (y == 0)
     lv_obj_set_y(ui_Dot, lv_pct(0));
   else
-    lv_obj_set_y(ui_Dot, lv_pct(-1 * (round((100 / 90) * y))));
+    lv_obj_set_y(ui_Dot, lv_pct(-1 * (round(p_val * y))));
 }
