@@ -32,6 +32,7 @@ extern lv_obj_t * ui_Position;
 extern lv_obj_t * ui_Calibrate;
 extern lv_obj_t * ui_LabelCalibrate;
 extern lv_obj_t * ui_Koord;
+extern lv_obj_t * ui_KoorBase;
 extern lv_obj_t * ui_KoorCircle;
 extern lv_obj_t * ui_Dot;
 extern lv_obj_t * ui_XYButton;
@@ -52,7 +53,7 @@ extern lv_obj_t * uic_Calibrate;
 extern lv_obj_t * uic_XZButton;
 
 // EVENTS
-
+extern void ui_event_Calibrate(lv_event_t * e);
 extern lv_obj_t * ui____initial_actions0;
 
 // UI INIT

@@ -16,6 +16,7 @@ lv_obj_t * ui_Position;
 lv_obj_t * ui_Calibrate;
 lv_obj_t * ui_LabelCalibrate;
 lv_obj_t * ui_Koord;
+lv_obj_t * ui_KoorBase;
 lv_obj_t * ui_KoorCircle;
 lv_obj_t * ui_Dot;
 lv_obj_t * ui_XYButton;

@@ -7,8 +7,8 @@ float gyrX, gyrY, gyrZ;
 float accX, accY, accZ;
 float freq;
 float gyrXoffs, gyrYoffs, gyrZoffs;
+int x,y,z;
 
-positions gyr_pos = {0,0,0};
 
 void calibrate() {
   for (int i = 0; i < 100; ++i) {
@@ -44,6 +44,12 @@ void calc_a(float i) {
   gx = gx * i + ax * i2;
   gy = gy * i + ay * i2;
   gz = gz * i + az * i2;
-  
-  gyr_pos = {round(gx - gyrXoffs), round(gy - gyrYoffs), round(gz - gyrZoffs)};
+}
+
+void get_position(void)
+{
+  calc_a(0.5);
+  x = round(gx - gyrXoffs);
+  y = round(gy - gyrYoffs);
+  z = round(gz - gyrZoffs);
 }

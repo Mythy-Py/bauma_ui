@@ -19,6 +19,7 @@ extern float gx, gy, gz;
 extern float freq;
 extern float gyrXoffs, gyrYoffs, gyrZoffs;
 
+extern int x,y,z;
 
 //new_files
 const char* deviceServiceUuid = "19b10000-e8f2-537e-4f6c-d104768a1214";
@@ -36,14 +37,15 @@ void setup() {
     Serial.println("Failed to init IMU!");
   freq = imu.gyroscopeSampleRate();
   calibrate();
-
+  initBLE();
   ui_init();
-  lv_obj_add_event_cb(ui_LabelCalibrate, ui_event_LabelCalibrate, LV_EVENT_ALL, NULL);
+  
 }
 
 void loop() {
+  connectToPeripheral();
   lv_timer_handler();
-  calc_a(0.5);
+  get_position();
   update_vals();
   delay(5);
 }
@@ -57,7 +59,7 @@ void Serial_print() {
   Serial.println(gz);
 }
 
-void round_vals(int* x, int* y, int* z)
+void overflows_vals(int* x, int* y, int* z)
 {
   
   //Overflows
@@ -79,16 +81,13 @@ void round_vals(int* x, int* y, int* z)
 }
 
 void update_vals() {
-  int x = round(gx - gyrXoffs);
-  int y = round(gy - gyrYoffs);
-  int z = round(gz - gyrZoffs);
 
   lv_label_set_text(ui_Xstr, String("X: " + String(x)).c_str());
   lv_label_set_text(ui_Ystr, String("Y: " + String(y)).c_str());
   lv_label_set_text(ui_Zstr, String("Z: " + String(z)).c_str());
 
   //Overflows
-  round_vals(&x,&y,&z);
+  overflows_vals(&x,&y,&z);
   
   constexpr float p_val = 100/90;
   if (x == 0)
@@ -189,9 +188,7 @@ void controlPeripheral(BLEDevice peripheral) {
   Serial.println("- Peripheral device disconnected!");
 }
 
-void ui_event_LabelCalibrate(lv_event_t * e) {
-    if(lv_event_get_code(e) == LV_EVENT_CLICKED) {
+void ui_event_Calibrate(lv_event_t * e) {
         calibrate();
-    }
 }
 // end of Testfiles
