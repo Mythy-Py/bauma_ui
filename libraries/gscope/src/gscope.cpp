@@ -1,6 +1,12 @@
 #include "gscope.h"
 
-BoschSensorClass imu(Wire1);
+#if defined(ARDUINO_GIGA)
+  BoschSensorClass imu(Wire1);
+#elif defined(ARDUINO_NICLA_VISION)
+  BoschSensorClass imu(Wire);
+#else
+  BoschSensorClass imu(Wire);
+#endif
 
 float gx, gy, gz;
 float gyrX, gyrY, gyrZ;
@@ -9,6 +15,12 @@ float freq;
 float gyrXoffs, gyrYoffs, gyrZoffs;
 int x,y,z;
 
+void gscope_init(void)
+{
+  imu.begin();
+  freq = imu.gyroscopeSampleRate();
+  calibrate();
+}
 
 void calibrate() {
   for (int i = 0; i < 100; ++i) {
@@ -19,7 +31,7 @@ void calibrate() {
   gyrZoffs = gz;
 }
 
-void read_sensor_data() {
+void read_sensor_data(void) {
   if (imu.accelerationAvailable()) {
     imu.readAcceleration(accX, accY, accZ);
   }

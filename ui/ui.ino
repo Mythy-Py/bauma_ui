@@ -5,7 +5,7 @@
 #include "gscope.h"
 #include <ArduinoBLE.h>
 
-extern BoschSensorClass imu;
+//extern BoschSensorClass imu;
 Arduino_H7_Video Display(800, 480, GigaDisplayShield);  //( 800, 480, GigaDisplayShield );
 Arduino_GigaDisplayTouch TouchDetector;
 
@@ -15,52 +15,43 @@ extern lv_obj_t* ui_Zstr;
 extern lv_obj_t* ui_Dot;
 extern lv_obj_t* ui_LabelCalibrate;
 
-extern float gx, gy, gz;
-extern float freq;
-extern float gyrXoffs, gyrYoffs, gyrZoffs;
 
 extern int x,y,z;
 
-//new_files
-const char* deviceServiceUuid = "19b10000-e8f2-537e-4f6c-d104768a1214";
-const char* deviceServiceCharacteristicUuid = "19b10001-e8f2-537e-4f6c-d104768a1214";
 
 BLEDevice peripheral;
-//end of new files
+BLECharacteristic ledCharacteristic;
 
 void setup() {
   Display.begin();
   Serial.begin(9600);
   Serial.println("Started");
   TouchDetector.begin();
-  if (imu.begin() == 0)
-    Serial.println("Failed to init IMU!");
-  freq = imu.gyroscopeSampleRate();
-  calibrate();
-  initBLE();
+
+  gscope_init();
+
+  BLE.begin();  
+  Serial.println("Bluetooth® Low Energy Central - LED control");
   ui_init();
   
 }
 
 void loop() {
-  connectToPeripheral();
   lv_timer_handler();
+  if(!peripheral.connected())
+    connect(peripheral);
+
   get_position();
   update_vals();
-  delay(5);
+  controlLed(peripheral);
+  
 }
 
-void Serial_print() {
-  Serial.print("gx,gy,gz : ");
-  Serial.print(gx);
-  Serial.print(" , ");
-  Serial.print(gy);
-  Serial.print(" , ");
-  Serial.println(gz);
+void ui_event_Calibrate(lv_event_t * e) {
+        calibrate();
 }
 
-void overflows_vals(int* x, int* y, int* z)
-{
+void overflows_vals(int* x, int* y, int* z){
   
   //Overflows
   if (*x > 90)
@@ -101,94 +92,105 @@ void update_vals() {
     lv_obj_set_y(ui_Dot, lv_pct(-1 * (round(p_val * y))));
 }
 
-
-// Testfiles
-void initBLE(void) {
-   if (!BLE.begin()) {
-      Serial.println("* Starting Bluetooth® Low Energy module failed!");
-      while(1){};
-     }
-    BLE.setLocalName("Arduino R1 (Central)"); 
-    BLE.advertise();
-
-    Serial.println("Arduino R1 BLE (Central Device) started");
-    //connectToPeripheral();
+void Serial_print() {
+  Serial.print("x,y,z : ");
+  Serial.print(x);
+  Serial.print(" , ");
+  Serial.print(y);
+  Serial.print(" , ");
+  Serial.println(z);
 }
 
-
-void connectToPeripheral(){
+void connect(BLEDevice periheral){
+  BLE.scanForUuid("19b10000-e8f2-537e-4f6c-d104768a1214");
+  Serial.println("* Start Scanning");
+  delay(50);
   
-  Serial.println("- Discovering peripheral device...");
-  
-
-  unsigned long forceQuit = millis() + 3000;
-  while (!peripheral && forceQuit > millis());
-  {
-    BLE.scanForUuid(deviceServiceUuid);
-    peripheral = BLE.available();
-  }
-
+  peripheral = BLE.available();
   if (peripheral) {
-    Serial.println("* Peripheral device found!");
-    Serial.print("* Device MAC address: ");
-    Serial.println(peripheral.address());
-    Serial.print("* Device name: ");
-    Serial.println(peripheral.localName());
-    Serial.print("* Advertised service UUID: ");
-    Serial.println(peripheral.advertisedServiceUuid());
-    Serial.println(" ");
-    BLE.stopScan();
-    controlPeripheral(peripheral);
-  }
-  else
-    Serial.println("* Peripheral device NOT found!");
-  
-}
+    // discovered a peripheral, print out address, local name, and advertised service
+    Serial.print("Found ");
+    Serial.print(peripheral.address());
+    Serial.print(" '");
+    Serial.print(peripheral.localName());
+    Serial.print("' ");
+    Serial.print(peripheral.advertisedServiceUuid());
+    Serial.println();
 
-void controlPeripheral(BLEDevice peripheral) {
-  Serial.println("- Connecting to peripheral device...");
+    if (peripheral.localName() != "LED") {
+      return;
+    }
 
-  if (peripheral.connect()) {
-    Serial.println("* Connected to peripheral device!");
-    Serial.println(" ");
-  } else {
-    Serial.println("* Connection to peripheral device failed!");
-    Serial.println(" ");
-    return;
-  }
 
-  Serial.println("- Discovering peripheral device attributes...");
-  if (peripheral.discoverAttributes()) {
-    Serial.println("* Peripheral device attributes discovered!");
-    Serial.println(" ");
-  } else {
-    Serial.println("* Peripheral device attributes discovery failed!");
-    Serial.println(" ");
-    peripheral.disconnect();
-    return;
-  }
-
-  BLECharacteristic gestureCharacteristic = peripheral.characteristic(deviceServiceCharacteristicUuid);
     
-  if (!gestureCharacteristic) {
-    Serial.println("* Peripheral device does not have gesture_type characteristic!");
-    peripheral.disconnect();
-    return;
-  } else if (!gestureCharacteristic.canWrite()) {
-    Serial.println("* Peripheral does not have a writable gesture_type characteristic!");
-    peripheral.disconnect();
-    return;
+  // connect to the peripheral
+    int tries = 0;
+    while(!peripheral.connect() && tries < 5 )
+    {
+        Serial.println("Failed to connect!");
+        delay(50);
+        ++tries;
+        Serial.println("Retrying!");
+    }
+
+    if (tries == 5)
+    {
+      Serial.println("Abborted after 5 tries !");
+      peripheral.disconnect();
+    }
+
+
+
+  // discover peripheral attributes
+    tries = 0; 
+    Serial.println("Discovering attributes ...");
+    while (!peripheral.discoverAttributes() && tries < 5) {
+      delay(50);
+      ++tries;
+    }
+
+    if (tries == 5) 
+    {
+      Serial.println("Attribute discovery failed!");
+      peripheral.disconnect();
+      return;
+    }
+    else
+      Serial.println("Attributes discovered");
+
+
+    ledCharacteristic = peripheral.characteristic("19b10001-e8f2-537e-4f6c-d104768a1214");
+    if (!ledCharacteristic) {
+      Serial.println("Peripheral does not have LED characteristic!");
+      peripheral.disconnect();
+      return;
+    } else if (!ledCharacteristic.canWrite()) {
+      Serial.println("Peripheral does not have a writable LED characteristic!");
+      peripheral.disconnect();
+      return;
+    }
+
   }
-  
-  if (peripheral.connected()) {
-      Serial.print("* Writing value to gesture_type characteristic: ");
-      Serial.println("* Writing value to gesture_type characteristic done!");
-      Serial.println(" ");
+  else { 
+      // peripheral disconnected, start scanning again
+      Serial.println("Device not Found, trying again...");
+      // stop scanning
+      BLE.stopScan();
+
   }
-  Serial.println("- Peripheral device disconnected!");
 }
 
-void ui_event_Calibrate(lv_event_t * e) {
-        calibrate();
+void controlLed(BLEDevice peripheral) {
+
+  if (peripheral.connected()) {
+    // while the peripheral is connected
+    // write 0x01 to turn the LED on
+    ledCharacteristic.writeValue((byte)0x01);
+    delay(10);
+
+    // write 0x00 to turn the LED off
+    ledCharacteristic.writeValue((byte)0x00);
+    delay(10);
+  }
+
 }
-// end of Testfiles
