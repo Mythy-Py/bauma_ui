@@ -1,16 +1,19 @@
-
-#include <ArduinoBLE.h>
-#include "Nicla_System.h" 
+#include "Nicla_System.h"
 #include "Arduino_BHY2.h"
+#include <ArduinoBLE.h>
 #include <math.h>
 
 
 
 
-BLEService ledService("19B10000-E8F2-537E-4F6C-D104768A1214"); // Bluetooth® Low Energy LED Service
+BLEService ledService("19b10000-e8f2-537e-4f6c-d104768a1214");  // Bluetooth® Low Energy LED Service
 
 // Bluetooth® Low Energy LED Switch Characteristic - custom 128-bit UUID, read and writable by central
-BLEByteCharacteristic switchCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1214", BLERead | BLEWrite);
+BLEByteCharacteristic switchCharacteristic("19b10001-e8f2-537e-4f6c-d104768a1214", BLERead | BLEWrite);
+BLEIntCharacteristic X_Value("19B10001-E8F2-537E-4F6C-D104768A1215", BLERead);
+BLEIntCharacteristic Y_Value("19B10001-E8F2-537E-4F6C-D104768A1216", BLERead);
+BLEIntCharacteristic Z_Value("19B10001-E8F2-537E-4F6C-D104768A1217", BLERead);
+
 
 SensorXYZ accel(SENSOR_ID_ACC);
 SensorXYZ gyro(SENSOR_ID_GYRO);
@@ -18,19 +21,17 @@ SensorXYZ gyro(SENSOR_ID_GYRO);
 int16_t gx, gy, gz;
 int16_t gyrX, gyrY, gyrZ;
 int16_t accX, accY, accZ;
-float freq;
+float freq = 50;
 int16_t gyrXoffs, gyrYoffs, gyrZoffs;
-int x,y,z;
+int x, y, z;
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
+  while (!Serial)
+    ;
 
-  nicla::begin();               // initialise library
-  nicla::leds.begin();          // Start I2C connection
-  BHY2.begin();
-  accel.begin();
-  gyro.begin();
+  nicla::begin();       // initialise library
+  nicla::leds.begin();  // Start I2C connection
 
   // initialize the Bluetooth® Low Energy hardware
   BLE.begin();
@@ -42,6 +43,9 @@ void setup() {
 
   // add the characteristic to the service
   ledService.addCharacteristic(switchCharacteristic);
+  ledService.addCharacteristic(X_Value);
+  ledService.addCharacteristic(Y_Value);
+  ledService.addCharacteristic(Z_Value);
 
   // add service
   BLE.addService(ledService);
@@ -54,49 +58,62 @@ void setup() {
 
   Serial.println("BLE LED Peripheral");
 
-
+  gscope_init();
 }
 
+
+RGBColors color = red;
+BLEDevice central;
 void loop() {
-  static auto printTime = millis();
   // listen for Bluetooth® Low Energy peripherals to connect:
-  BLEDevice central = BLE.central();
-  nicla::leds.setColor(red);
+  color = color == red ? white : red;
 
+  nicla::leds.setColor(color);
+  Serial.println("- Discovering central device...");
 
+  central = BLE.central();
+  delay(500);
+  //getSensorData();
   // if a central is connected to peripheral:
-  if (central) {
-    nicla::leds.setColor(blue);     
-    
+  if (central.connected()) {
+    nicla::leds.setColor(blue);
+
     Serial.print("Connected to central: ");
     // print the central's MAC address:
     Serial.println(central.address());
-
-    // while the central is still connected to peripheral:
-    while (central.connected()) {
-      // if the remote device wrote to the characteristic,
-      // use the value to control the LED:
-      if (switchCharacteristic.written()) {
-        if (switchCharacteristic.value()) {   // any value other than 0
-          nicla::leds.setColor(green);        // will turn the LED on
-        } else {                              // a 0 value
-          nicla::leds.setColor(off);            // will turn the LED off
+    if (central) {
+      Serial.println("* Connected to central device!");
+      Serial.print("* Device MAC address: ");
+      Serial.println(central.address());
+      Serial.println(" ");
+      // while the central is still connected to peripheral:
+      while (central.connected()) {
+        getSensorData();
+        X_Value.setValueBE(x);
+        Y_Value.setValueBE(y);
+        Z_Value.setValueBE(z);
+        // if the remote device wrote to the characteristic,
+        // use the value to control the LED:
+        if (switchCharacteristic.written()) {
+          if (switchCharacteristic.value()) {  // any value other than 0
+            nicla::leds.setColor(green);       // will turn the LED on
+          } else {                             // a 0 value
+            nicla::leds.setColor(off);         // will turn the LED off
+          }
         }
+        //if (millis() - printTime >= 50) {
+        //printTime = millis();
+        //getSensorData();
+        //}
       }
-      if (millis() - printTime >= 50) {
-      printTime = millis();
-      getSensorData();
-      }
+      // when the central disconnects, print it out:
+      Serial.print("Disconnected from central: ");
+      Serial.println(central.address());
     }
-
-    // when the central disconnects, print it out:
-    Serial.print("Disconnected from central: ");
-    Serial.println(central.address());
   }
 }
 
-void getSensorData(void)
-{
+void getSensorData(void) {
   //read_sensor_data();
   // Accelerometer values
   /*
@@ -131,18 +148,29 @@ void getSensorData(void)
   Serial.println(z);
 }
 
-void gscope_init(void)
-{
-  freq = gyro.getConfiguration().sample_rate;
+void gscope_init(void) {
+  //freq = gyro.getConfiguration().sample_rate;
+  BHY2.begin();
+  accel.begin(freq);
+  gyro.begin(freq);
   calibrate();
 }
 
 void calibrate() {
-  calc_a(0.08);
+  for (int i = 0; i < 200; i++) {
+    calc_a(0.5);
+  }
 
   gyrXoffs = gx;
   gyrYoffs = gy;
   gyrZoffs = gz;
+  Serial.print("GX Offset: ");
+  Serial.println(gyrXoffs);
+  Serial.print("GY Offset: ");
+  Serial.println(gyrYoffs);
+  Serial.print("GZ Offset: ");
+  Serial.println(gyrZoffs);
+  Serial.println("Done");
 }
 
 void read_sensor_data(void) {
@@ -159,7 +187,7 @@ void read_sensor_data(void) {
 void calc_a(float i) {
 
   read_sensor_data();
-  constexpr float div = 180/ M_PI;
+  constexpr float div = 180 / M_PI;
   float ay = atan2(accX, sqrt(pow(accY, 2) + pow(accZ, 2))) * div;
   float ax = atan2(accY, sqrt(pow(accX, 2) + pow(accZ, 2))) * div;
   float az = atan2(accZ, sqrt(pow(accX, 2) + pow(accY, 2))) * div;
@@ -175,11 +203,9 @@ void calc_a(float i) {
   gz = gz * i + az * i2;
 }
 
-void get_position(void)
-{
-  calc_a(0.5);
+void get_position(void) {
+  calc_a(0.2);
   x = round(gx - gyrXoffs);
   y = round(gy - gyrYoffs);
   z = round(gz - gyrZoffs);
 }
-

@@ -101,7 +101,7 @@ void Serial_print() {
   Serial.println(z);
 }
 
-void connect(BLEDevice periheral){
+void connect(BLEDevice peripheral){
   BLE.scanForUuid("19b10000-e8f2-537e-4f6c-d104768a1214");
   Serial.println("* Start Scanning");
   delay(50);
@@ -116,6 +116,7 @@ void connect(BLEDevice periheral){
     Serial.print("' ");
     Serial.print(peripheral.advertisedServiceUuid());
     Serial.println();
+    BLE.stopScan();
 
     if (peripheral.localName() != "LED") {
       return;
@@ -125,11 +126,10 @@ void connect(BLEDevice periheral){
     
   // connect to the peripheral
     int tries = 0;
-    while(!peripheral.connect() && tries < 5 )
+    while(!peripheral.connect() && tries++ < 5 )
     {
         Serial.println("Failed to connect!");
         delay(50);
-        ++tries;
         Serial.println("Retrying!");
     }
 
@@ -138,26 +138,39 @@ void connect(BLEDevice periheral){
       Serial.println("Abborted after 5 tries !");
       peripheral.disconnect();
     }
+    else
+        Serial.println("Connected!");
+    
 
 
 
   // discover peripheral attributes
     tries = 0; 
     Serial.println("Discovering attributes ...");
-    while (!peripheral.discoverAttributes() && tries < 5) {
+  
+
+    while (!peripheral.discoverAttributes() && tries++ < 10) {
       delay(50);
-      ++tries;
     }
 
     if (tries == 5) 
     {
       Serial.println("Attribute discovery failed!");
       peripheral.disconnect();
+      BLE.stopScan();
       return;
     }
     else
       Serial.println("Attributes discovered");
 
+    if(peripheral.hasCharacteristic("19b10001-e8f2-537e-4f6c-d104768a1214"))
+      Serial.println("Characteristic discovert!");
+    else
+    {
+      Serial.println("Characteristic not found!!");
+      peripheral.disconnect();
+      
+    }
 
     ledCharacteristic = peripheral.characteristic("19b10001-e8f2-537e-4f6c-d104768a1214");
     if (!ledCharacteristic) {
