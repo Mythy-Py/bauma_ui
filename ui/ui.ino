@@ -17,10 +17,16 @@ extern lv_obj_t* ui_LabelCalibrate;
 
 
 extern int x,y,z;
+int16_t xx,yy,zz;
 
 
 BLEDevice peripheral;
 BLECharacteristic ledCharacteristic;
+BLECharacteristic X_val;
+BLECharacteristic Y_val;
+BLECharacteristic Z_val;
+//BLEIntCharacteristic Y_val;
+//BLEIntCharacteristic Z_val;
 
 void setup() {
   Display.begin();
@@ -73,23 +79,23 @@ void overflows_vals(int* x, int* y, int* z){
 
 void update_vals() {
 
-  lv_label_set_text(ui_Xstr, String("X: " + String(x)).c_str());
-  lv_label_set_text(ui_Ystr, String("Y: " + String(y)).c_str());
-  lv_label_set_text(ui_Zstr, String("Z: " + String(z)).c_str());
+  lv_label_set_text(ui_Xstr, String("X: " + String(xx)).c_str());
+  lv_label_set_text(ui_Ystr, String("Y: " + String(yy)).c_str());
+  lv_label_set_text(ui_Zstr, String("Z: " + String(zz)).c_str());
 
   //Overflows
   overflows_vals(&x,&y,&z);
   
   constexpr float p_val = 100/90;
-  if (x == 0)
+  if (xx == 0)
     lv_obj_set_x(ui_Dot, lv_pct(0));
   else
-    lv_obj_set_x(ui_Dot, lv_pct(round(p_val * x)));
+    lv_obj_set_x(ui_Dot, lv_pct(round(p_val * xx)));
 
-  if (y == 0)
+  if (yy == 0)
     lv_obj_set_y(ui_Dot, lv_pct(0));
   else
-    lv_obj_set_y(ui_Dot, lv_pct(-1 * (round(p_val * y))));
+    lv_obj_set_y(ui_Dot, lv_pct(-1 * (round(p_val * yy))));
 }
 
 void Serial_print() {
@@ -101,7 +107,7 @@ void Serial_print() {
   Serial.println(z);
 }
 
-void connect(BLEDevice peripheral){
+void connect(BLEDevice& peripheral){
   BLE.scanForUuid("19b10000-e8f2-537e-4f6c-d104768a1214");
   Serial.println("* Start Scanning");
   delay(50);
@@ -163,14 +169,6 @@ void connect(BLEDevice peripheral){
     else
       Serial.println("Attributes discovered");
 
-    if(peripheral.hasCharacteristic("19b10001-e8f2-537e-4f6c-d104768a1214"))
-      Serial.println("Characteristic discovert!");
-    else
-    {
-      Serial.println("Characteristic not found!!");
-      peripheral.disconnect();
-      
-    }
 
     ledCharacteristic = peripheral.characteristic("19b10001-e8f2-537e-4f6c-d104768a1214");
     if (!ledCharacteristic) {
@@ -182,6 +180,41 @@ void connect(BLEDevice peripheral){
       peripheral.disconnect();
       return;
     }
+    
+    X_val = peripheral.characteristic("19b10001-e8f2-537e-4f6c-d104768a1215");
+    if (!X_val) {
+      Serial.println("Peripheral does not have X_val characteristic!");
+      peripheral.disconnect();
+      return;
+    } else if (!X_val.canRead()) {
+      Serial.println("Peripheral does not have a readable X_val characteristic!");
+      peripheral.disconnect();
+      return;
+    }
+    
+    Y_val = peripheral.characteristic("19b10001-e8f2-537e-4f6c-d104768a1216");
+    if (!Y_val) {
+      Serial.println("Peripheral does not have Y_val characteristic!");
+      peripheral.disconnect();
+      return;
+    } else if (!Y_val.canRead()) {
+      Serial.println("Peripheral does not have a readable Y_val characteristic!");
+      peripheral.disconnect();
+      return;
+    }
+
+    Z_val = peripheral.characteristic("19b10001-e8f2-537e-4f6c-d104768a1217");
+    if (!Z_val) {
+      Serial.println("Peripheral does not have Z_val characteristic!");
+      peripheral.disconnect();
+      return;
+    } else if (!Z_val.canRead()) {
+      Serial.println("Peripheral does not have a readable Z_val characteristic!");
+      peripheral.disconnect();
+      return;
+    }
+      Serial.println("Device connected!");
+    
 
   }
   else { 
@@ -193,17 +226,27 @@ void connect(BLEDevice peripheral){
   }
 }
 
-void controlLed(BLEDevice peripheral) {
+void controlLed(BLEDevice& peripheral) {
 
   if (peripheral.connected()) {
     // while the peripheral is connected
     // write 0x01 to turn the LED on
-    ledCharacteristic.writeValue((byte)0x01);
-    delay(10);
 
-    // write 0x00 to turn the LED off
+    if (!ledCharacteristic.canWrite()) {
+    peripheral.disconnect();
+    }
+
+    byte state; 
+    ledCharacteristic.readValue(state);
+    if(!state)
+    ledCharacteristic.writeValue((byte)0x01);
+    else
     ledCharacteristic.writeValue((byte)0x00);
-    delay(10);
+    // write 0x00 to turn the LED off
+    
+      X_val.readValue(xx);
+      Y_val.readValue(yy);
+      Z_val.readValue(zz);
   }
 
 }

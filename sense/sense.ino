@@ -40,7 +40,7 @@ void setup() {
   // set advertised local name and service UUID:
   BLE.setLocalName("LED");
   BLE.setAdvertisedService(ledService);
-
+  BLE.setDeviceName("Deez");
   // add the characteristic to the service
   ledService.addCharacteristic(switchCharacteristic);
   ledService.addCharacteristic(X_Value);
@@ -73,14 +73,11 @@ void loop() {
 
   central = BLE.central();
   delay(500);
-  //getSensorData();
+  getSensorData();
   // if a central is connected to peripheral:
-  if (central.connected()) {
     nicla::leds.setColor(blue);
 
-    Serial.print("Connected to central: ");
     // print the central's MAC address:
-    Serial.println(central.address());
     if (central) {
       Serial.println("* Connected to central device!");
       Serial.print("* Device MAC address: ");
@@ -89,15 +86,17 @@ void loop() {
       // while the central is still connected to peripheral:
       while (central.connected()) {
         getSensorData();
-        X_Value.setValueBE(x);
-        Y_Value.setValueBE(y);
-        Z_Value.setValueBE(z);
+        X_Value.setValue(x);
+        Y_Value.setValue(y);
+        Z_Value.setValue(z);
         // if the remote device wrote to the characteristic,
         // use the value to control the LED:
         if (switchCharacteristic.written()) {
           if (switchCharacteristic.value()) {  // any value other than 0
+            Serial.println("On");
             nicla::leds.setColor(green);       // will turn the LED on
           } else {                             // a 0 value
+            Serial.println("Off");
             nicla::leds.setColor(off);         // will turn the LED off
           }
         }
@@ -110,11 +109,11 @@ void loop() {
       Serial.print("Disconnected from central: ");
       Serial.println(central.address());
     }
-  }
 }
 
 void getSensorData(void) {
-  //read_sensor_data();
+  read_sensor_data();
+  get_position();
   // Accelerometer values
   /*
   Serial.print("acc_X:");
@@ -136,8 +135,6 @@ void getSensorData(void) {
   Serial.print(",");
   Serial.print("gyro_Z:");
   Serial.println(gyrZ);
-  */
-  get_position();
   Serial.print("X:");
   Serial.print(x);
   Serial.print(",");
@@ -146,11 +143,12 @@ void getSensorData(void) {
   Serial.print(",");
   Serial.print("Z:");
   Serial.println(z);
+  */
 }
 
 void gscope_init(void) {
   //freq = gyro.getConfiguration().sample_rate;
-  BHY2.begin();
+  BHY2.begin(NICLA_I2C);
   accel.begin(freq);
   gyro.begin(freq);
   calibrate();
